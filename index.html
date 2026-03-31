@@ -31,6 +31,7 @@ button {
   padding: 8px 12px;
   border-radius: 10px;
   color: white;
+  font-size: 14px;
 }
 </style>
 </head>
@@ -51,6 +52,7 @@ const ctx = canvas.getContext("2d");
 let drawing = false;
 let currentPath = [];
 let paths = [];
+let strokeWidth = 2;
 
 function resizeCanvas() {
   const dpr = window.devicePixelRatio || 1;
@@ -95,8 +97,9 @@ function drawSmooth(path) {
     ctx.quadraticCurveTo(path[i].x, path[i].y, midX, midY);
   }
 
-  ctx.lineWidth = 3;
+  ctx.lineWidth = strokeWidth;
   ctx.lineCap = "round";
+  ctx.lineJoin = "round";
   ctx.strokeStyle = "#ffffff";
   ctx.stroke();
 }
@@ -133,8 +136,8 @@ function clearCanvas() {
 }
 
 function exportSVG() {
-
   const MM_PER_PIXEL = 0.264583;
+  const margin = 20;
 
   let allPoints = [];
   paths.forEach(p => allPoints.push(...p));
@@ -146,16 +149,16 @@ function exportSVG() {
   let minY = Math.min(...allPoints.map(p => p.y));
   let maxY = Math.max(...allPoints.map(p => p.y));
 
-  let width = maxX - minX;
-  let height = maxY - minY;
+  minX -= margin;
+  minY -= margin;
+
+  let width = (maxX - minX) + margin;
+  let height = (maxY - minY) + margin;
 
   let widthMM = width * MM_PER_PIXEL;
   let heightMM = height * MM_PER_PIXEL;
 
-  let svg = `<svg xmlns="http://www.w3.org/2000/svg"
-    width="${widthMM}mm"
-    height="${heightMM}mm"
-    viewBox="0 0 ${width} ${height}">`;
+  let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${widthMM}mm" height="${heightMM}mm" viewBox="0 0 ${width} ${height}">`;
 
   paths.forEach(path => {
     let d = `M ${path[0].x - minX} ${path[0].y - minY}`;
@@ -163,7 +166,6 @@ function exportSVG() {
     for (let i = 1; i < path.length - 1; i++) {
       const midX = ((path[i].x + path[i + 1].x) / 2) - minX;
       const midY = ((path[i].y + path[i + 1].y) / 2) - minY;
-
       d += ` Q ${path[i].x - minX} ${path[i].y - minY} ${midX} ${midY}`;
     }
 
@@ -172,9 +174,17 @@ function exportSVG() {
 
   svg += "</svg>";
 
-  console.log(svg);
-  alert("Centered + laser-ready SVG exported");
+  const blob = new Blob([svg], { type: "image/svg+xml" });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "BDD-engrave.svg";
+  a.click();
+
+  URL.revokeObjectURL(url);
 }
+
 window.addEventListener("resize", resizeCanvas);
 resizeCanvas();
 </script>
