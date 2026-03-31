@@ -133,23 +133,38 @@ function clearCanvas() {
 }
 
 function exportSVG() {
+
   const MM_PER_PIXEL = 0.264583;
 
-  let widthMM = window.innerWidth * MM_PER_PIXEL;
-  let heightMM = window.innerHeight * MM_PER_PIXEL;
+  let allPoints = [];
+  paths.forEach(p => allPoints.push(...p));
+
+  if (allPoints.length === 0) return;
+
+  let minX = Math.min(...allPoints.map(p => p.x));
+  let maxX = Math.max(...allPoints.map(p => p.x));
+  let minY = Math.min(...allPoints.map(p => p.y));
+  let maxY = Math.max(...allPoints.map(p => p.y));
+
+  let width = maxX - minX;
+  let height = maxY - minY;
+
+  let widthMM = width * MM_PER_PIXEL;
+  let heightMM = height * MM_PER_PIXEL;
 
   let svg = `<svg xmlns="http://www.w3.org/2000/svg"
     width="${widthMM}mm"
     height="${heightMM}mm"
-    viewBox="0 0 ${window.innerWidth} ${window.innerHeight}">`;
+    viewBox="0 0 ${width} ${height}">`;
 
   paths.forEach(path => {
-    let d = `M ${path[0].x} ${path[0].y}`;
+    let d = `M ${path[0].x - minX} ${path[0].y - minY}`;
 
     for (let i = 1; i < path.length - 1; i++) {
-      const midX = (path[i].x + path[i + 1].x) / 2;
-      const midY = (path[i].y + path[i + 1].y) / 2;
-      d += ` Q ${path[i].x} ${path[i].y} ${midX} ${midY}`;
+      const midX = ((path[i].x + path[i + 1].x) / 2) - minX;
+      const midY = ((path[i].y + path[i + 1].y) / 2) - minY;
+
+      d += ` Q ${path[i].x - minX} ${path[i].y - minY} ${midX} ${midY}`;
     }
 
     svg += `<path d="${d}" stroke="black" fill="none"/>`;
@@ -158,9 +173,8 @@ function exportSVG() {
   svg += "</svg>";
 
   console.log(svg);
-  alert("Laser-ready SVG exported");
+  alert("Centered + laser-ready SVG exported");
 }
-
 window.addEventListener("resize", resizeCanvas);
 resizeCanvas();
 </script>
