@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #0b0b0f;
+    }
+    #wrap {
+      position: fixed;
+      inset: 0;
+      background: #0b0b0f;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+      background: #0b0b0f;
+    }
+    .toolbar {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      z-index: 10;
+      display: flex;
+      gap: 8px;
+    }
+    button {
+      background: rgba(255,255,255,0.08);
+      color: white;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 10px;
+      padding: 8px 12px;
+      font: 14px system-ui, sans-serif;
+    }
+  </style>
+</head>
+<body>
+  <div id="wrap">
+    <div class="toolbar">
+      <button onclick="clearCanvas()">Clear</button>
+      <button onclick="exportSVG()">Export SVG</button>
+    </div>
+    <canvas id="canvas"></canvas>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+
+    let drawing = false;
+    let currentPath = [];
+    let paths = [];
+
+    function resizeCanvas() {
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.floor(window.innerWidth * dpr);
+      canvas.height = Math.floor(window.innerHeight * dpr);
+      canvas.style.width = window.innerWidth + "px";
+      canvas.style.height = window.innerHeight + "px";
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      redraw();
+    }
+
+    function pointFromEvent(e) {
+      const rect = canvas.getBoundingClientRect();
+      return {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top
+      };
+    }
+
+    function simplifyPath(path, minDist = 2) {
+      if (path.length < 2) return path;
+      const out = [path[0]];
+      for (let i = 1; i < path.length; i++) {
+        const dx = path[i].x - out[out.length - 1].x;
+        const dy = path[i].y - out[out.length - 1].y;
+        if (Math.hypot(dx, dy) >= minDist) out.push(path[i]);
+      }
+      return out;
+    }
+
+    function drawSmoothPath(path) {
+      if (!path || path.length < 2) return;
+      ctx.beginPath();
+      ctx.moveTo(path[0].x, path[0].y);
+      for (let i = 1; i < path.length - 1; i++) {
+        const midX = (path[i].x + path[i + 1].x) / 2;
+        const midY = (path[i].y + path[i + 1].y) / 2;
+        ctx.quadraticCurveTo(path[i].x, path[i].y, midX, midY);
+      }
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = "#ffffff";
+      ctx.stroke();
+    }
+
+    function redraw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      for (const p of paths) drawSmoothPath(p);
+      drawSmoothPath(currentPath);
+    }
+
+    canvas.addEventListener("pointerdown", (e) => {
+      drawing = true;
+      currentPath = [pointFromEvent(e)];
+      canvas.setPointerCapture?.(e.pointerId);
+      redraw();
+    });
+
+    canvas.addEventListener("pointermove", (e) => {
+      if (!drawing) return;
+      currentPath.push(pointFromEvent(e));
+      redraw();
+    });
+
+    function endDraw() {
+      if (!drawing) return;
+      drawing = false;
+      const cleaned = simplifyPath(currentPath, 2);
+      if (cleaned.length > 1) paths.push(cleaned);
+      currentPath = [];
+      redraw();
+    }
+
+    canvas.addEventListener("pointerup", endDraw);
+    canvas.addEventListener("pointercancel", endDraw);
+    canvas.addEventListener("pointerleave", endDraw);
+
+    function clearCanvas() {
+      paths = [];
+      currentPath = [];
+      redraw();
+    }
+
+    function exportSVG() {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}">`;
+      for (const path of paths) {
+        if (!path.length) continue;
+        let d = `M ${path[0].x} ${path[0].y}`;
+        for (let i = 1; i < path.length; i++) d += ` L ${path[i].x} ${path[i].y}`;
+        svg += `<path d="${d}" fill="none" stroke="black" stroke-linecap="round" stroke-linejoin="round" />`;
+      }
+      svg += `</svg>`;
+      console.log(svg);
+      alert("SVG exported to browser console.");
+    }
+
+    window.addEventListener("resize", resizeCanvas);
+    resizeCanvas();
+  </script>
+</body>
+</html>
